@@ -120,7 +120,9 @@ nav{overflow-x:auto}
 .col .h{width:100%;background:var(--c);color:#fff;border-radius:14px;padding:6px 4px;text-align:center;font-family:var(--display);font-weight:800;font-size:26px;line-height:1.2}
 .col.t-kam .h{color:var(--on-yellow)}
 .col .h small{display:block;font-size:30px}
-.col.armed{box-shadow:0 0 0 6px color-mix(in srgb,var(--c) 35%,transparent)}
+.col.armed{box-shadow:0 0 0 8px color-mix(in srgb,var(--c) 45%,transparent);transform:translateY(-6px)}
+.col.nudge{animation:bounce .6s}
+.col{transition:transform .2s}
 .col .placed{font-size:44px;line-height:1;text-align:center;animation:pop .5s}
 .col .placed small{display:block;font-family:var(--display);font-size:16px;font-weight:700}
 .tray{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;min-height:120px}
@@ -237,7 +239,7 @@ footer{color:var(--muted);font-size:14px;text-align:center}
   <!-- 4 -->
   <section class="stage" id="s-match" hidden>
     <h2>طابقي السؤال بجوابه</h2>
-    <p class="hint">اختاري صورة، ثم اضغطي على السؤال المناسب لها.</p>
+    <p class="hint">اضغطي على السؤال الكبير أولًا، ثم اختاري الصورة المناسبة له.</p>
     <div class="cols" id="cols"></div>
     <div class="tray" id="tray"></div>
     <div class="feedback" id="matchFb" aria-live="polite"></div>
@@ -385,26 +387,31 @@ const SETS=[
   [{e:'👩‍⚕️',n:'الطبيبة',k:'man'},{e:'📕',n:'كتاب',k:'matha'},{e:'🕌',n:'المسجد',k:'ayna'},{e:'🖐️',n:'خمسة',k:'kam'},{e:'✖️',n:'لا',k:'hal'}],
   [{e:'👩',n:'أمي',k:'man'},{e:'🎒',n:'حقيبة',k:'matha'},{e:'🌳',n:'الحديقة',k:'ayna'},{e:'🍪🍪',n:'قطعتان',k:'kam'},{e:'✔️',n:'نعم',k:'hal'}]
 ];
-let setI=0, selPic=null, left=0;
+let setI=0, selCol=null, left=0;
 function renderMatch(){
   $('#cols').innerHTML=ORDER.map(k=>`<button class="col t-${k}" data-k="${k}" aria-label="${TOOLS[k].w}"><div class="h"><small>${TOOLS[k].ic}</small>${TOOLS[k].w}</div></button>`).join('');
-  const items=shuffle(SETS[setI].slice());left=items.length;selPic=null;
+  const items=shuffle(SETS[setI].slice());left=items.length;selCol=null;
   $('#tray').innerHTML='';$('#matchFb').textContent='';$('#matchFb').className='feedback';$('#matchAgain').hidden=true;
-  items.forEach(it=>{const b=document.createElement('button');b.className='pic';b.innerHTML=`<span class="e">${it.e}</span>${it.n}`;b._it=it;
-    b.onclick=()=>{document.querySelectorAll('.pic').forEach(p=>p.classList.remove('sel'));b.classList.add('sel');selPic=b;speak(it.n);tone(520,.08);
-      document.querySelectorAll('.col').forEach(c=>c.classList.add('armed'))};
-    $('#tray').appendChild(b)});
   document.querySelectorAll('.col').forEach(c=>c.onclick=()=>{
-    if(!selPic)return;const it=selPic._it;
-    if(it.k===c.dataset.k){
-      const d=document.createElement('div');d.className='placed';d.innerHTML=`${it.e}<small>${it.n}</small>`;c.appendChild(d);
-      selPic.remove();selPic=null;left--;yay();addStars(1);
-      document.querySelectorAll('.col').forEach(x=>x.classList.remove('armed'));
-      $('#matchFb').textContent='صحيح! '+TOOLS[it.k].w+' '+TOOLS[it.k].ans;$('#matchFb').className='feedback ok';speak('صحيح');
-      if(!left){burst();$('#matchFb').textContent='رائع! أكملتِ كل الصور 🎉';$('#matchAgain').hidden=false}
-    }else{const p=selPic;p.classList.remove('wrong');void p.offsetWidth;p.classList.add('wrong');oops();
-      $('#matchFb').textContent='ليس هنا، جرّبي سؤالًا آخر';$('#matchFb').className='feedback no'}
+    document.querySelectorAll('.col').forEach(x=>x.classList.toggle('armed',x===c));
+    selCol=c;const t=TOOLS[c.dataset.k];speak(t.w.replace('؟',''));tone(520,.08);
+    $('#matchFb').textContent='الآن اختاري صورة تجيب عن '+t.w;$('#matchFb').className='feedback';
   });
+  items.forEach(it=>{const b=document.createElement('button');b.className='pic';b.innerHTML=`<span class="e">${it.e}</span>${it.n}`;
+    b.onclick=()=>{
+      if(!selCol){$('#matchFb').textContent='اضغطي على السؤال الكبير أولًا ☝️';$('#matchFb').className='feedback no';
+        document.querySelectorAll('.col').forEach(c=>{c.classList.remove('nudge');void c.offsetWidth;c.classList.add('nudge')});oops();return}
+      const c=selCol;
+      if(it.k===c.dataset.k){
+        const d=document.createElement('div');d.className='placed';d.innerHTML=`${it.e}<small>${it.n}</small>`;c.appendChild(d);
+        b.remove();left--;yay();addStars(1);speak('صحيح. '+it.n);
+        c.classList.remove('armed');selCol=null;
+        $('#matchFb').textContent='صحيح! '+TOOLS[it.k].w+' '+TOOLS[it.k].ans;$('#matchFb').className='feedback ok';
+        if(!left){burst();$('#matchFb').textContent='رائع! أكملتِ كل الصور 🎉';$('#matchAgain').hidden=false}
+      }else{b.classList.remove('wrong');void b.offsetWidth;b.classList.add('wrong');oops();speak('حاولي صورة أخرى');
+        $('#matchFb').textContent='ليست هذه، جرّبي صورة أخرى';$('#matchFb').className='feedback no'}
+    };
+    $('#tray').appendChild(b)});
 }
 $('#matchAgain').onclick=()=>{setI=(setI+1)%SETS.length;renderMatch()};
 renderMatch();
